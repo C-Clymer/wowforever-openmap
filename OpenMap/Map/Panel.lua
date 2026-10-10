@@ -84,6 +84,20 @@ d.favorites = {}                -- row ids, in the order they were starred: a bu
 local map, sc, menu, toggle, pinButton, checks, favBar
 local W, PAD, COL = 460, 16, 206
 local STAR, STAR_OFF = "auctionhouse-icon-favorite", "auctionhouse-icon-favorite-off"
+local STAR_FILE = "Interface\\TargetingFrame\\UI-RaidTargetingIcon_1"   -- (the raid star, where the client lacks those)
+
+-- a star: lit (a favourite) or not
+local function SetStar(tex, lit)
+	local atlas = lit and STAR or STAR_OFF
+	if C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(atlas) then
+		tex:SetAtlas(atlas)
+		tex:SetDesaturated(false)
+	else
+		tex:SetTexture(STAR_FILE)
+		tex:SetDesaturated(not lit)
+	end
+	tex:SetAlpha(lit and 1 or 0.45)
+end
 
 local function IsFavorite(id)
 	for _, f in ipairs(mod.db.favorites) do if f == id then return true end end
@@ -107,7 +121,11 @@ local function RefreshFavorites()
 	for _, r in ipairs(Rows()) do if r.id then byId[r.id] = r end end
 	favBar.buttons = favBar.buttons or {}
 	for _, b in ipairs(favBar.buttons) do b:Hide() end
-	local x, room, n = 0, (sc:GetRight() or 0) - (toggle:GetRight() or 0) - 12, 0
+	-- (the room to the map's right edge; before the window is laid out its edges aren't known yet:
+	-- then all of them, and the next refresh trims it)
+	local sl, tr = sc:GetLeft(), toggle:GetRight()
+	local room = (sl and tr) and (sc:GetWidth() - (tr - sl) - 12) or math.huge
+	local x, n = 0, 0
 	for _, id in ipairs(mod.db.favorites) do
 		local r = byId[id]
 		if r then
@@ -215,9 +233,7 @@ Fill = function()
 				it:SetPoint("TOPLEFT", (col - 1) * COL, y)
 				it.label:SetText(row[1])
 				it:SetChecked(row[2]() and true or false)
-				local fav = IsFavorite(row.id)
-				it.star.icon:SetAtlas(fav and STAR or STAR_OFF)
-				it.star.icon:SetAlpha(fav and 1 or 0.45)
+				SetStar(it.star.icon, IsFavorite(row.id))
 				it.star:ClearAllPoints()
 				it.star:SetPoint("TOPLEFT", (col - 1) * COL + COL - 22, y - 5)
 				it.star:SetShown(row.id ~= nil)
@@ -293,7 +309,7 @@ function mod:SetupPanel(worldMap)
 	favBar:SetHeight(22)
 	favBar:SetPoint("LEFT", toggle, "RIGHT", 6, 0)
 	favBar:SetFrameLevel(level)
-	map:HookScript("OnShow", RefreshFavorites)
+	map:HookScript("OnShow", function() RefreshFavorites() C_Timer.After(0, RefreshFavorites) end)   -- (and once laid out)
 	sc:HookScript("OnSizeChanged", RefreshFavorites)
 	RefreshFavorites()
 
