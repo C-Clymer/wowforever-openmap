@@ -83,20 +83,13 @@ d.favorites = {}                -- row ids, in the order they were starred: a bu
 
 local map, sc, menu, toggle, pinButton, checks, favBar
 local W, PAD, COL = 460, 16, 206
-local STAR, STAR_OFF = "auctionhouse-icon-favorite", "auctionhouse-icon-favorite-off"
-local STAR_FILE = "Interface\\TargetingFrame\\UI-RaidTargetingIcon_1"   -- (the raid star, where the client lacks those)
+local STAR = "Interface\\TargetingFrame\\UI-RaidTargetingIcon_1"   -- (the raid marker's star: every client has it)
 
--- a star: lit (a favourite) or not
+-- a star: lit (a favourite), or grey
 local function SetStar(tex, lit)
-	local atlas = lit and STAR or STAR_OFF
-	if C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(atlas) then
-		tex:SetAtlas(atlas)
-		tex:SetDesaturated(false)
-	else
-		tex:SetTexture(STAR_FILE)
-		tex:SetDesaturated(not lit)
-	end
-	tex:SetAlpha(lit and 1 or 0.45)
+	tex:SetTexture(STAR)
+	tex:SetDesaturated(not lit)
+	tex:SetAlpha(lit and 1 or 0.4)
 end
 
 local function IsFavorite(id)
@@ -222,7 +215,7 @@ Fill = function()
 						GameTooltip:Show()
 					end)
 					it.star:SetScript("OnLeave", function(self)
-						if not IsFavorite(self.row.id) then self.icon:SetAlpha(0.45) end
+						if not IsFavorite(self.row.id) then self.icon:SetAlpha(0.4) end
 						GameTooltip:Hide()
 					end)
 					checks.boxes[nb] = it
@@ -244,7 +237,11 @@ Fill = function()
 		tallest = math.max(tallest, -y)
 	end
 	checks:SetHeight(tallest)
-	menu:SetHeight(checks.top + tallest + PAD + 4)
+	checks.hint = checks.hint or checks:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+	checks.hint:ClearAllPoints()
+	checks.hint:SetPoint("TOPLEFT", 2, -tallest - 6)
+	checks.hint:SetText(L["Click a setting's star to put it on the map as a button, beside OpenMap's."])
+	menu:SetHeight(checks.top + tallest + 22 + PAD + 4)
 end
 
 local function Place()
