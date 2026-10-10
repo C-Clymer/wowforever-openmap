@@ -23,6 +23,7 @@ d.border = true                 -- the map art's parchment frame round the map, 
 local map, handle, grip, border
 local FillScreen, SetupBorder
 local blizzardSize              -- the windowed map's own size, for a reset
+local ours = false              -- OpenMap is moving / sizing the window itself (not to be undone)
 
 local function Refit()
 	local sc = map.ScrollContainer
@@ -34,11 +35,16 @@ local function Maximized()
 end
 
 local function Apply()
-	if not map or Maximized() then return end
+	if not map or Maximized() or ours then return end
+	ours = true
 	local w = mod.db.window
 	if w then
-		map:ClearAllPoints()
-		map:SetPoint(w[1], UIParent, w[2], w[3], w[4])
+		local point, rel, relPoint, x, y = map:GetPoint(1)
+		if map:GetNumPoints() ~= 1 or point ~= w[1] or rel ~= UIParent or relPoint ~= w[2]
+			or math.abs((x or 0) - w[3]) > 0.5 or math.abs((y or 0) - w[4]) > 0.5 then
+			map:ClearAllPoints()
+			map:SetPoint(w[1], UIParent, w[2], w[3], w[4])
+		end
 	end
 	if math.abs((map:GetScale() or 1) - mod.db.windowScale) > 0.001 then map:SetScale(mod.db.windowScale) end
 	local size = mod.db.windowSize
@@ -46,6 +52,7 @@ local function Apply()
 		map:SetSize(size[1], size[2])
 		Refit()
 	end
+	ours = false
 end
 
 -- maximized: Blizzard keeps the map art's shape (black bars at the sides on a wide
@@ -70,8 +77,10 @@ function mod:ResetWindow()
 	mod.db.windowScale = 1
 	mod.db.windowSize = false
 	if map then
+		ours = true
 		map:SetScale(1)
 		if blizzardSize and not Maximized() then map:SetSize(blizzardSize[1], blizzardSize[2]) Refit() end
+		ours = false
 		if map:IsShown() and not InCombatLockdown() then HideUIPanel(map) ShowUIPanel(map) end
 	end
 end
@@ -236,9 +245,11 @@ function mod:SetupWindow(worldMap)
 		local s = map:GetEffectiveScale()
 		local w = math.max(MIN_W, start.w + (x - start.x) / s)
 		local h = math.max(MIN_H, start.h - (y - start.y) / s)
+		ours = true
 		map:ClearAllPoints()
 		map:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", start.left, start.top)   -- (offsets in the map's own units, as GetLeft gives)
 		map:SetSize(w, h)
+		ours = false
 	end)
 	grip:SetScript("OnEnter", function(self)
 		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
@@ -252,6 +263,19 @@ function mod:SetupWindow(worldMap)
 	map:HookScript("OnShow", Apply)
 	if ShowUIPanel then hooksecurefunc("ShowUIPanel", function(frame) if frame == map then Apply() end end) end
 	if UpdateUIPanelPositions then hooksecurefunc("UpdateUIPanelPositions", function() if map:IsShown() then Apply() end end) end
+	-- ... and the moment anything else sizes, scales or places the windowed map (Blizzard's
+	-- layout, its quest log widening it, its minimize ...), so it never shows elsewhere first.
+	-- (Not while it's being dragged: the drag places it, and the drop saves where it went.)
+	local dragging = false
+	local function Hold()
+		if ours or dragging or not map:IsShown() then return end
+		Apply()
+	end
+	for _, method in ipairs({ "SetSize", "SetWidth", "SetHeight", "SetScale", "SetPoint" }) do
+		if map[method] then hooksecurefunc(map, method, Hold) end
+	end
+	handle:HookScript("OnDragStart", function() dragging = true end)
+	handle:HookScript("OnDragStop", function() dragging = false end)
 	local function Mode()
 		local max = Maximized()
 		handle:SetShown(not max)
