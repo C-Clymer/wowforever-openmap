@@ -23,6 +23,7 @@ DETAIL_HINT = (1.8, 3, 0.3)     # (the zones' hint from further out: Stitch.lua'
 CITY_FADE_OF = {1454: (0.08, 0.25)}   # (cities that come in sooner: Stitch.lua's)
 BORDER_OUT, BORDER_SCALE = (1.15, 1.6), 0.55   # (the border round the view: Window.lua's)
 SEA = (0.50, 0.49, 0.41)        # the sea's colour where no map paints one (MapSeaField covers the rest)
+SEA_REACH = 1.5                 # how far past the world art the sea runs (Stitch.lua's): MapSeaFieldOut over it
 BACK_MUTE = 0.92                # how far the world / continent art fades as it mutes (alpha 1 - this)
 # the ocean (Stitch.lua's sea section): Blizzard's sea paper and coastal strokes, tiled at the
 # continent art's own scale and in finer octaves as you close in, so the sea keeps its texture
@@ -307,6 +308,16 @@ def render(cu, cv, zoom, path):
     px = min(OW / W, OH / H) * zoom                      # output px per world unit
     out = np.zeros((OH, OW, 3), np.float32)
     out[:] = SEA
+    # the sea's colour past the world art (MapSeaFieldOut, sea_world.py), as Stitch.lua lays it
+    fo = tex_rgba("MapSeaFieldOut") if USE_SEA and not ZONES_ONLY else None
+    if fo is not None:
+        ys0, xs0 = np.mgrid[0:OH, 0:OW].astype(np.float32)
+        span = 1 + 2 * SEA_REACH
+        fu = ((xs0 - OW / 2) / px + cu * W) / W
+        fv = ((ys0 - OH / 2) / px + cv * H) / H
+        fx = (fu + SEA_REACH) / span * fo.shape[1] - 0.5
+        fy = (fv + SEA_REACH) / span * fo.shape[0] - 0.5
+        out[:] = np.dstack([ndimage.map_coordinates(fo[..., c], [fy, fx], order=1, mode="nearest") for c in range(3)])
     def place(m, img, alpha_mask, tint=(1, 1, 1), dsat=0.0, alpha=1.0):
         if alpha <= 0.001: return
         l, r, t, b = m["rect"]

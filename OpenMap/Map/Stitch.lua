@@ -92,6 +92,7 @@ local LAND, GRAIN = TEX .. "MapLand\\", TEX .. "MapGrain"
 local BAND, TERRITORY, CORE = TEX .. "MapBand\\", TEX .. "MapTerritory\\", TEX .. "MapCore\\"
 local EDGE = TEX .. "MapEdge\\"     -- each zone's own frame, measured (tools/map-preview/render.py --bake-edges)
 local SEA_DARK, SEA_LIGHT, SEA_FIELD = TEX .. "MapSeaDark", TEX .. "MapSeaLight", TEX .. "MapSeaField\\"
+local SEA_FIELD_OUT = TEX .. "MapSeaFieldOut"   -- (the world's sea colour carried out past it: sea_world.py)
 local HATCH, COAST = TEX .. "MapHatch", TEX .. "MapCoast\\"
 local PAPER_LAYERS = { { 1, 0, 1 }, { 2.618, 0.41, 0.5 } }   -- the gap paper: { size x, offset (tiles), alpha }
 local SEA_MASK = TEX .. "MapSeaMask\\"
@@ -954,10 +955,11 @@ function S.Build(parent, artLevel, range, iconLevel)
 	arrow:Hide()
 
 	-- the sea runs on well past the world art, so a wide (or tall) view shows more ocean,
-	-- not the edge of the paper: its colour, and its mottling at the continents' scale (the
+	-- not the edge of the paper: its colour (the world's sea colours carried outward, keeping
+	-- the tints of the sea near its edges), and its mottling at the continents' scale (the
 	-- world art and its sea colour fade out into it at their edges)
 	local sea = root:CreateTexture(nil, "BACKGROUND", nil, -8)
-	sea:SetColorTexture(SEA[1], SEA[2], SEA[3])
+	sea:SetTexture(SEA_FIELD_OUT, nil, nil, "LINEAR")
 	Record(sea, -SEA_REACH * W, -SEA_REACH * H, (1 + 2 * SEA_REACH) * W, (1 + 2 * SEA_REACH) * H)
 	local outer = {}
 	for i, file in ipairs({ SEA_DARK, SEA_LIGHT }) do
