@@ -70,8 +70,6 @@ local CITY_FADE_OF = {          -- ... sooner where the zone paints it as no mor
 }
 local UNDERGROUND_CITIES = { [1458] = true, [1455] = true }   -- Undercity, Ironforge: the minimap there
                                 -- shows the surface, so their own map is drawn above it (and it's kept off them)
-local BANNER_OUT = { 0.35, 0.5 } -- ... and where the zone's banner for it (ns.MapBanners, the only one: the
-                                --  zone's own art is drawn without it), over the city, goes
 local MUTE_FADE = { 4, 7 }      -- ... and where the world / continent art mutes
 local SEA_FADE = { 1.2, 1.9 }   -- ... and where it goes from over the sea (its big sea lettering), the sea's own texture taking over
 local UNEXPLORED = 0.4          -- how much of an unexplored area's art shows when faded (the zone's blank
@@ -1079,14 +1077,15 @@ function S.Build(parent, artLevel, range, iconLevel)
 	end
 
 	-- a zone's name banner for a city (ns.MapBanners, tools/map-preview/banners.py), cut from
-	-- the zone's art, over the city's map (S.SetZoom keeps it until close in)
+	-- the zone's art: the city's title at every zoom (its own map is cut down to its plan, without
+	-- its banner), over the city and the close-up layers (the minimap, the caves), with the labels
 	for _, c in ipairs(cities) do
 		local b = ns.MapBanners and ns.MapBanners[c.mapID]
 		local p = b and Place(b[1])
 		if p then
 			local f = CreateFrame("Frame", nil, citiesRoot)
 			f:SetAllPoints(root)
-			f:SetFrameLevel(c[1]:GetFrameLevel() + 1)
+			f:SetFrameLevel(artLevel + range - 3)
 			local tex = f:CreateTexture(nil, "ARTWORK")
 			tex:SetTexture(TEX .. "MapBanner\\" .. c.mapID, nil, nil, "LINEAR")
 			Record(tex, p.left + b[2] * p.sx, p.top + b[3] * p.sy, b[4] * p.sx, b[5] * p.sy)
@@ -1359,10 +1358,8 @@ function S.SetZoom(zoom, scale)
 		local a = Smooth({ fade[1] * c[2], fade[2] * c[2] })
 		if c.alpha ~= a then c.alpha = a c[1]:SetAlpha(a) end   -- (shown / hidden by S.Cull)
 		-- the zone's banner for it: the zone's art is drawn without it, so this is the banner,
-		-- with the zone's detail, over the city as it comes in, and gone once you're close
-		if c.banner then
-			Fade(c.banner, detailNow * (1 - Smooth({ BANNER_OUT[1] * c[2], BANNER_OUT[2] * c[2] })))
-		end
+		-- with the zone's detail, and the city's title once you're in it
+		if c.banner then Fade(c.banner, detailNow) end
 	end
 	Step("cities")
 	local m = math.floor(Smooth(MUTE_FADE) * 20) / 20
